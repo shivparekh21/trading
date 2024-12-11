@@ -3,7 +3,7 @@ package com.market.trading.response;
 import lombok.Data;
 
 @Data
-public class JwtResponse {
+public class AuthResponse {
     private String jwtToken;
     private boolean status;
     private String message;

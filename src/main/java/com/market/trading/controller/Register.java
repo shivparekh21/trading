@@ -1,10 +1,13 @@
 package com.market.trading.controller;
 
 import com.market.trading.config.JwtProvider;
+import com.market.trading.model.TwoFactorOtp;
 import com.market.trading.model.User;
 import com.market.trading.repository.UserRepository;
-import com.market.trading.response.JwtResponse;
+import com.market.trading.response.AuthResponse;
 import com.market.trading.service.CustomUserServiceDetails;
+import com.market.trading.service.TwoFactorOtpService;
+import com.market.trading.utils.OtpUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -24,8 +27,11 @@ public class Register {
     @Autowired
     private CustomUserServiceDetails customUserServiceDetails;
 
+    @Autowired
+    private TwoFactorOtpService twoFactorOtpService;
+
     @PostMapping("/signup")
-    public ResponseEntity<JwtResponse> registerUser(@RequestBody User user) throws Exception {
+    public ResponseEntity<AuthResponse> registerUser(@RequestBody User user) throws Exception {
 
         User emailExists = userRepository.findByEmail(user.getEmail());
         if (emailExists != null) {
@@ -44,17 +50,17 @@ public class Register {
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         String jwtToken = JwtProvider.generateToken(auth);
-        JwtResponse jwtResponse = new JwtResponse();
-        jwtResponse.setJwtToken(jwtToken);
-        jwtResponse.setStatus(true);
-        jwtResponse.setMessage("Successfully registered");
+        AuthResponse authResponse = new AuthResponse();
+        authResponse.setJwtToken(jwtToken);
+        authResponse.setStatus(true);
+        authResponse.setMessage("Successfully registered");
 
-        return ResponseEntity.ok(jwtResponse);
+        return ResponseEntity.ok(authResponse);
     }
 
 
     @PostMapping("/login")
-    public ResponseEntity<JwtResponse> login(@RequestBody User user) throws Exception {
+    public ResponseEntity<AuthResponse> login(@RequestBody User user) throws Exception {
 
         String userEmail = user.getEmail();
         String password = user.getPassword();
@@ -65,12 +71,34 @@ public class Register {
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         String jwtToken = JwtProvider.generateToken(auth);
-        JwtResponse jwtResponse = new JwtResponse();
-        jwtResponse.setJwtToken(jwtToken);
-        jwtResponse.setStatus(true);
-        jwtResponse.setMessage("Successfully login");
 
-        return ResponseEntity.ok(jwtResponse);
+        User authenticatedUser = userRepository.findByEmail(userEmail);
+        if(user.getTwoFactorAuth().isEnabled()){
+            AuthResponse authResponse = new AuthResponse();
+            authResponse.setMessage("Two-factor authentication required");
+            authResponse.setTwoAuthEnabled(true);
+            String otp = OtpUtils.generateOtp();
+
+            // If old OTP exists
+            TwoFactorOtp oldTwoFactorOtp = twoFactorOtpService.findByUser(authenticatedUser.getId());
+            if(oldTwoFactorOtp != null){
+                twoFactorOtpService.deleteTwoFactorOtp(oldTwoFactorOtp);
+            }
+
+            //New
+            TwoFactorOtp newTwoFactorOtp = twoFactorOtpService.createTwoFactorOtp(
+                    authenticatedUser, otp, jwtToken);
+
+
+
+        }
+
+        AuthResponse authResponse = new AuthResponse();
+        authResponse.setJwtToken(jwtToken);
+        authResponse.setStatus(true);
+        authResponse.setMessage("Successfully login");
+
+        return ResponseEntity.ok(authResponse);
     }
 
     private Authentication authenticate(String userEmail, String password) {
