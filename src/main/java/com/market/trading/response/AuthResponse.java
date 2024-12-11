@@ -9,5 +9,4 @@ public class AuthResponse {
     private String message;
     private boolean isTwoAuthEnabled;
     private String session;
-
 }

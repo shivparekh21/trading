@@ -20,7 +20,7 @@ public class JwtProvider {
     //The secret key is used to sign and verify JWTs.
     private static SecretKey key = Keys.hmacShaKeyFor(JwtConstant.JWT_SECRET.getBytes());
 
-    //Parameter: Authentication - the currently authenticated user.
+    //Parameter: Authentication (authenticate) - the currently authenticated user.
     public static String generateToken(Authentication authentication) {
         Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
         String roles = populateAuthorities(authorities);

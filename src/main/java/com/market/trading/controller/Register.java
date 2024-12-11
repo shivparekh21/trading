@@ -1,12 +1,14 @@
 package com.market.trading.controller;
 
 import com.market.trading.config.JwtProvider;
+import com.market.trading.domain.VerificationType;
 import com.market.trading.model.TwoFactorOtp;
 import com.market.trading.model.User;
 import com.market.trading.repository.UserRepository;
 import com.market.trading.response.AuthResponse;
 import com.market.trading.service.CustomUserServiceDetails;
 import com.market.trading.service.EmailService;
+import com.market.trading.service.SmsService;
 import com.market.trading.service.TwoFactorOtpService;
 import com.market.trading.utils.OtpUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +36,9 @@ public class Register {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private SmsService smsService;
+
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> registerUser(@RequestBody User user) throws Exception {
 
@@ -50,7 +55,7 @@ public class Register {
 
         //Authenticates the registered user by creating a UsernamePasswordAuthenticationToken.
         //Sets this authentication into the current SecurityContext.
-        Authentication auth = new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword());
+        Authentication auth = new UsernamePasswordAuthenticationToken(savedUser.getEmail(), savedUser.getPassword());
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         String jwtToken = JwtProvider.generateToken(auth);
@@ -77,10 +82,14 @@ public class Register {
         AuthResponse authResponse = new AuthResponse();
 
         User authenticatedUser = userRepository.findByEmail(userEmail);
+        System.out.println("Login Email: " + authenticatedUser.getEmail());
+        System.out.println("2FA Enabled: " + authenticatedUser.getTwoFactorAuth().isEnabled());
         // Check if the TwoFactorAuth is Enable for OTP
-        if(user.getTwoFactorAuth().isEnabled()){
+        if(authenticatedUser.getTwoFactorAuth().isEnabled()){
             authResponse.setMessage("Two-factor authentication required");
             authResponse.setTwoAuthEnabled(true);
+
+            //Generate OTP
             String otp = OtpUtils.generateOtp();
 
             // If old OTP exists
@@ -93,8 +102,12 @@ public class Register {
             TwoFactorOtp newTwoFactorOtp = twoFactorOtpService.createTwoFactorOtp(
                     authenticatedUser, otp, null);
 
-            //forwarding Email with otp
-            emailService.sendVerificationOtpEmail(userEmail,otp);
+            //forwarding otp with email or mobile
+            if (authenticatedUser.getTwoFactorAuth().getVerificationType() == VerificationType.EMAIL) {
+                emailService.sendVerificationOtpEmail(userEmail, otp);
+            } else if (authenticatedUser.getTwoFactorAuth().getVerificationType() == VerificationType.MOBILE) {
+                smsService.sendVerificationOtpSms(authenticatedUser.getTwoFactorAuth().getSendTo(), otp);
+            }
 
             authResponse.setSession(newTwoFactorOtp.getId());
             return ResponseEntity.accepted().body(authResponse);
@@ -120,8 +133,11 @@ public class Register {
         return new UsernamePasswordAuthenticationToken(userDetails, password, userDetails.getAuthorities());
     }
 
+
+    @PostMapping("/two-factor-verify/{otp}")
     public ResponseEntity<AuthResponse> verifyLoginOtp(@PathVariable String otp,
                                                        @RequestParam String id) {
+
         TwoFactorOtp twoFactorOtp = twoFactorOtpService.findById(id);
         if(twoFactorOtpService.verifyTwoFactorOtp(twoFactorOtp, otp)) {
 
