@@ -12,6 +12,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 public class UserController {
 
@@ -54,9 +56,13 @@ public class UserController {
     }
 
     @PostMapping("/reset-password")
-    public String resetPassword(@RequestParam String resetToken, @RequestParam String password) throws Exception {
+    public String resetPassword(@RequestBody Map<String, String> requestBody) throws Exception {
+        String resetToken = requestBody.get("resetToken");
+        String password = requestBody.get("password");
+
         return forgotPasswordService.resetPassword(resetToken, password);
     }
+
 
 
 }
