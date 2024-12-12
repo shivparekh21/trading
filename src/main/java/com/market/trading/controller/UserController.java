@@ -3,8 +3,10 @@ package com.market.trading.controller;
 import com.market.trading.domain.VerificationType;
 import com.market.trading.model.User;
 import com.market.trading.service.EmailService;
+import com.market.trading.service.ForgotPasswordService;
 import com.market.trading.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,7 +19,7 @@ public class UserController {
     private UserService userService;
 
     @Autowired
-    private EmailService emailService;
+    private ForgotPasswordService forgotPasswordService;
 
     @GetMapping("/api/users/profiles")
     public ResponseEntity<User> getUserProfileByJwt(@RequestHeader("Authorization") String jwtToken) throws Exception {
@@ -42,6 +44,19 @@ public class UserController {
         return ResponseEntity.ok("Two-factor authentication enabled successfully");
     }
 
+    @PostMapping("/forgot-password-request")
+    public ResponseEntity<String> resetPassword(@RequestParam String userEmail) throws Exception {
+        String result = forgotPasswordService.generateResetToken(userEmail);
+        if (result.equals("A reset request already exists for this email.")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(result);  // 409 Conflict
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/reset-password")
+    public String resetPassword(@RequestParam String resetToken, @RequestParam String password) throws Exception {
+        return forgotPasswordService.resetPassword(resetToken, password);
+    }
 
 
 }
