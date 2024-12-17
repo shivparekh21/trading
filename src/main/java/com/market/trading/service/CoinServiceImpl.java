@@ -26,6 +26,7 @@ public class CoinServiceImpl implements CoinService {
     @Autowired
     private CoinRepository coinRepository;
 
+    //The ObjectMapper class from the Jackson library is used to map JSON data to Java objects and vice versa.
     @Autowired
     ObjectMapper objectMapper;
 
