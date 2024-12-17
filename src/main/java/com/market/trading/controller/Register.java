@@ -4,7 +4,9 @@ import com.market.trading.config.JwtProvider;
 import com.market.trading.domain.VerificationType;
 import com.market.trading.model.TwoFactorOtp;
 import com.market.trading.model.User;
+import com.market.trading.model.Wallet;
 import com.market.trading.repository.UserRepository;
+import com.market.trading.repository.WalletRepository;
 import com.market.trading.response.AuthResponse;
 import com.market.trading.service.CustomUserServiceDetails;
 import com.market.trading.service.EmailService;
@@ -19,6 +21,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/register")
@@ -39,6 +43,9 @@ public class Register {
     @Autowired
     private SmsService smsService;
 
+    @Autowired
+    WalletRepository walletRepository;
+
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> registerUser(@RequestBody User user) throws Exception {
 
@@ -52,6 +59,11 @@ public class Register {
         newUser.setEmail(user.getEmail());
         newUser.setPassword(user.getPassword());
         User savedUser = userRepository.save(user);
+
+        Wallet wallet = new Wallet();
+        wallet.setUser(savedUser);
+        wallet.setBalance(BigDecimal.ZERO);
+        walletRepository.save(wallet);
 
         //Authenticates the registered user by creating a UsernamePasswordAuthenticationToken.
         //Sets this authentication into the current SecurityContext.
